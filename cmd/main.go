@@ -1,6 +1,10 @@
 package main
 
-import "library/internal/logger"
+import (
+	"context"
+	"library/internal/logger"
+	"library/internal/repository"
+)
 
 func main() {
 	logger, logFileClose, err := logger.NewLogger("INFO")
@@ -9,4 +13,13 @@ func main() {
 	}
 	defer logFileClose()
 	logger.Info("app started")
+
+	ctx := context.Background()
+
+	pool, err := repository.Connect(ctx)
+	if err != nil {
+		logger.Fatal("Не удалось подключиться к БД")
+	}
+	defer pool.Close()
+
 }
