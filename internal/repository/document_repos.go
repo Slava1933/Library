@@ -17,52 +17,53 @@ func NewDocumentRepository(pool *pgxpool.Pool, log *zap.Logger) *DocumentReposit
 	return &DocumentRepository{pool: pool, log: log}
 }
 
-func (r *DocumentRepository) FindByDiscipline(ctx context.Context, discipline string) ([]models.Document, error) {
-	query := `SELECT * FROM documents WHERE discipline = $1`
+func (r *DocumentRepository) FindAllDisciplines(ctx context.Context) ([]models.Discipline, error) {
+	query := `SELECT id, title FROM disciplines`
 
-	rows, err := r.pool.Query(ctx, query, discipline)
+	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
-		r.log.Error("Failed to query documents", zap.String("operation", "FindByDiscipline"),
-			zap.String("discipline", discipline), zap.Error(err))
+		r.log.Error("Failed to query disciplines", zap.String("operation", "FindAllDisciplines"),
+			zap.Error(err))
 		return nil, err
 	}
 
 	defer rows.Close()
 
+	disciplines := make([]models.Discipline, 0)
+	for rows.Next() {
+		var discipline models.Discipline
+		err := rows.Scan(&discipline.ID, &discipline.Title)
+		if err != nil {
+			r.log.Error("Failed to scan discipline row",
+				zap.Error(err))
+			return nil, err
+		}
+		disciplines = append(disciplines, discipline)
+	}
+	return disciplines, nil
+}
+
+func (r *DocumentRepository) FindDocumentsByDiscipline(ctx context.Context, DisciplineID int64) ([]models.Document, error) {
+	query := `SELECT id, title, file_path FROM documents WHERE discipline_id = $1`
+
+	rows, err := r.pool.Query(ctx, query, DisciplineID)
+	if err != nil {
+		r.log.Error("Failed to query documents", zap.String("operation", "FindDocumentsByDiscipline"),
+			zap.String("id", string(DisciplineID)), zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
 	documents := make([]models.Document, 0)
 	for rows.Next() {
 		var document models.Document
-		err := rows.Scan(&document.ID, &document.Discipline, &document.Filepath)
+		err := rows.Scan(&document.ID, &document.Title, &document.Filepath)
 		if err != nil {
-			r.log.Error("Failed to scan document row",
-				zap.String("discipline", discipline),
-				zap.Error(err),
-			)
+			r.log.Error("Failed to scan document row", zap.Error(err))
 			return nil, err
 		}
 		documents = append(documents, document)
 	}
+
 	return documents, nil
-}
-
-func (r *DocumentRepository) FindByID(ctx context.Context, id int64) (models.Document, error) {
-	query := `SELECT * FROM documents WHERE id = $1`
-
-	row, err := r.pool.Query(ctx, query, id)
-	if err != nil {
-		r.log.Error("Failed to query documents", zap.String("operation", "FindByID"),
-			zap.String("id", string(id)), zap.Error(err))
-		return models.Document{}, err
-	}
-	defer row.Close()
-	var document models.Document
-	er := row.Scan(&document.ID, &document.Discipline, &document.Filepath)
-	if er != nil {
-		r.log.Error("Failed to scan document row",
-			zap.String("id", string(id)),
-			zap.Error(err),
-		)
-		return models.Document{}, err
-	}
-	return document, nil
 }
