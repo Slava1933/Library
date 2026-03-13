@@ -1,1 +1,2 @@
-DROP TABlE documents;
+DROP TABLE IF EXISTS disciplines;
+DROP TABlE IF EXISTS documents;
