@@ -6,6 +6,6 @@ import (
 )
 
 type Repository_interface interface {
-	FindByDiscipline(ctx context.Context, discipline string) ([]models.Document, error)
-	FindByID(ctx context.Context, id int64) (models.Document, error)
+	FindAllDisciplines(ctx context.Context) ([]models.Discipline, error)
+	FindDocumentsByDiscipline(ctx context.Context, DisciplineID int64) ([]models.Document, error)
 }
