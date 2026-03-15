@@ -18,6 +18,10 @@ type Handlers struct {
 	log  *zap.Logger
 }
 
+func NewHandlers(repo interfaces.Repository_interface, log *zap.Logger) *Handlers {
+	return &Handlers{repo: repo, log: log}
+}
+
 func (h *Handlers) GetDisciplinesHandler(w http.ResponseWriter, r *http.Request) {
 	disciplines, err := h.repo.FindAllDisciplines(r.Context())
 	if err != nil {
