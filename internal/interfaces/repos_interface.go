@@ -10,3 +10,11 @@ type Repository_interface interface {
 	FindDocumentsByDiscipline(ctx context.Context, DisciplineID int) ([]models.Document, error)
 	FindDocument(ctx context.Context, ID int) (models.Document, error)
 }
+
+type Admin_interface interface {
+	GetAllDocuments(ctx context.Context) ([]models.Document, error)
+	DeleteDocument(ctx context.Context, ID int) error
+	DeleteDiscipline(ctx context.Context, DisciplineID int) error
+	UploadDocument(ctx context.Context, document models.Document) error
+	UploadDiscipline(ctx context.Context, discipline models.Discipline) error
+}

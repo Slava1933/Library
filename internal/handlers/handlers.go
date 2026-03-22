@@ -4,22 +4,26 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"library/internal/interfaces"
 	"library/internal/models"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type Handlers struct {
 	repo interfaces.Repository_interface
 	log  *zap.Logger
+	pool *pgxpool.Pool
 }
 
-func NewHandlers(repo interfaces.Repository_interface, log *zap.Logger) *Handlers {
-	return &Handlers{repo: repo, log: log}
+func NewHandlers(repo interfaces.Repository_interface, log *zap.Logger, pool *pgxpool.Pool) *Handlers {
+	return &Handlers{repo: repo, log: log, pool: pool}
 }
 
 func (h *Handlers) GetDisciplinesHandler(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +86,9 @@ func (h *Handlers) GetDocsByDiscipline(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetDocument(w http.ResponseWriter, r *http.Request) {
+	query := `UPDATE documents 
+	SET download_count = download_count + 1
+	WHERE id = $1`
 	pathparts := strings.Split(r.URL.Path, "/")
 
 	if len(pathparts) < 4 {
@@ -108,11 +115,23 @@ func (h *Handlers) GetDocument(w http.ResponseWriter, r *http.Request) {
 			zap.Error(err))
 		http.Error(w, "Cant get the document to download from server", http.StatusInternalServerError)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err = json.NewEncoder(w).Encode(Document); err != nil {
-		h.log.Error("Failed to encode document to json", zap.Error(err))
-		http.Error(w, "Failed to encode document to json", http.StatusInternalServerError)
+	file, er := os.Open(Document.Filepath)
+	if er != nil {
+		h.log.Error("Failed to Open file", zap.Error(er))
+		http.Error(w, "File not found", http.StatusNotFound)
+	}
+	defer file.Close()
+
+	w.Header().Set("Content-type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment;filename="+Document.Title)
+
+	_, err = io.Copy(w, file)
+	if err != nil {
+		h.log.Error("Failed to send tile", zap.Error(err))
+	}
+	_, err = h.pool.Exec(r.Context(), query, DocumentID)
+	if err != nil {
+		h.log.Error("Failed to up download_counts", zap.Error(err))
 	}
 	h.log.Info("Get document to download was successfully ended", zap.Int("Document ID", DocumentID))
 }
