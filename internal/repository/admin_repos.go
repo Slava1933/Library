@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"library/internal/models"
 	"os"
 
@@ -135,4 +136,53 @@ func (a *AdminRepo) UploadDiscipline(ctx context.Context, discipline models.Disc
 		a.log.Error("Failed to Upload discipline", zap.Error(err))
 	}
 	return err
+}
+
+func (a *AdminRepo) UpdateDiscipline(ctx context.Context, discipline models.Discipline) (models.Discipline, error) {
+	query := `
+	UPDATE disciplines
+	SET title = $1 WHERE id = $2;
+	`
+	tag, err := a.pool.Exec(ctx, query, discipline.Title, discipline.ID)
+	if err != nil {
+		a.log.Error("Database error", zap.String("Operation: ", "UpdateDiscipline"), zap.Error(err))
+	}
+	if tag.RowsAffected() == 0 {
+		a.log.Error("There is not discipline with that id")
+		return discipline, fmt.Errorf("Discipline with id = %d not found", discipline.ID)
+	}
+	query_get := `
+	SELECT title FROM disciplines WHERE id = $1;
+	`
+	row := a.pool.QueryRow(ctx, query_get, discipline.ID)
+
+	row.Scan(&discipline.Title)
+
+	a.log.Info("Update discipline successfully ended")
+	return discipline, nil
+}
+
+func (a *AdminRepo) UpdateDocument(ctx context.Context, document models.Document) (models.Document, error) {
+	query := `
+	UPDATE documents
+	SET discipline_id = $1, title = $2, file_path = $3, 
+	WHERE id = $4;
+	`
+	tag, err := a.pool.Exec(ctx, query, document.DisciplineID, document.Title, document.Filepath, document.ID)
+	if err != nil {
+		a.log.Error("Database error", zap.String("Operation: ", "Update Document"), zap.Error(err))
+	}
+
+	if tag.RowsAffected() == 0 {
+		a.log.Error("There is no document with that id")
+		return document, fmt.Errorf("Document with id = %d not found", document.ID)
+	}
+
+	query_get := `
+	SELECT discipline_id, title, file_path WHERE id = $1;
+	`
+	row := a.pool.QueryRow(ctx, query_get, document.ID)
+	row.Scan(&document.DisciplineID, &document.Title, &document.Filepath)
+	a.log.Info("Update document was successfully ended")
+	return document, nil
 }
