@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"library/internal/errs"
 	"library/internal/models"
 	"os"
 
@@ -125,7 +125,7 @@ func (a *AdminRepo) UploadDocument(ctx context.Context, document models.Document
 	return err
 }
 
-func (a *AdminRepo) UploadDiscipline(ctx context.Context, discipline models.Discipline) error {
+func (a *AdminRepo) UploadDiscipline(ctx context.Context, discipline models.CreateDiscipline) error {
 	query := `
 	INSERT INTO disciplines
 	(title)
@@ -149,7 +149,7 @@ func (a *AdminRepo) UpdateDiscipline(ctx context.Context, discipline models.Disc
 	}
 	if tag.RowsAffected() == 0 {
 		a.log.Error("There is not discipline with that id")
-		return discipline, fmt.Errorf("Discipline with id = %d not found", discipline.ID)
+		return discipline, errs.ErrDiscNotFound
 	}
 	query_get := `
 	SELECT title FROM disciplines WHERE id = $1;
@@ -175,7 +175,7 @@ func (a *AdminRepo) UpdateDocument(ctx context.Context, document models.Document
 
 	if tag.RowsAffected() == 0 {
 		a.log.Error("There is no document with that id")
-		return document, fmt.Errorf("Document with id = %d not found", document.ID)
+		return document, errs.ErrDocNotFound
 	}
 
 	query_get := `

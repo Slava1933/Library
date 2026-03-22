@@ -12,3 +12,7 @@ type Document struct {
 	Filepath       string `db:"file_path" json:"file_path"`
 	Download_count int    `db:"download_count" json:"download_count"`
 }
+
+type CreateDiscipline struct {
+	Title string `db:"title" json:"title"`
+}

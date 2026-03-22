@@ -16,7 +16,7 @@ type Admin_interface interface {
 	DeleteDocument(ctx context.Context, ID int) error
 	DeleteDiscipline(ctx context.Context, DisciplineID int) error
 	UploadDocument(ctx context.Context, document models.Document) error
-	UploadDiscipline(ctx context.Context, discipline models.Discipline) error
+	UploadDiscipline(ctx context.Context, discipline models.CreateDiscipline) error
 	UpdateDiscipline(ctx context.Context, discipline models.Discipline) (models.Discipline, error)
 	UpdateDocument(ctx context.Context, document models.Document) (models.Document, error)
 }

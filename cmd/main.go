@@ -37,8 +37,9 @@ func main() {
 	router.Path("/api/admin/upload_discipline").Methods("POST")
 	router.Path("/api/admin/documents").Methods("GET")
 	router.Path("/api/admin/documents/{id}").Methods("DELETE")
-	router.Path("/api/admin/documents/{id}").Methods("PATCH")
-
+	router.Path("/api/admin/documents").Methods("PATCH")
+	router.Path("/api/admin/disciplines/{id}").Methods("DELETE")
+	router.Path("/api/admin/disciplines").Methods("PATCH")
 	fs := http.FileServer(http.Dir("./front"))
 	router.PathPrefix("/").Handler(fs)
 	if er := http.ListenAndServe(":8080", router); er != nil {

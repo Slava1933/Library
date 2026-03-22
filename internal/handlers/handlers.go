@@ -43,6 +43,7 @@ func (h *Handlers) GetDisciplinesHandler(w http.ResponseWriter, r *http.Request)
 	if err = json.NewEncoder(w).Encode(disciplines); err != nil {
 		h.log.Error("Failed to encode disciplines to json", zap.Error(err))
 		http.Error(w, "Failed to encode disciplines to json", http.StatusInternalServerError)
+		return
 	}
 	h.log.Info("Get disciplines was successfully ended", zap.Int("count:", len(disciplines)))
 }
@@ -74,12 +75,15 @@ func (h *Handlers) GetDocsByDiscipline(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("Cant get the documents of discipline",
 			zap.Int("discipline id:", DisciplineID), zap.Error(err))
 		http.Error(w, "Cant get the documents from server", http.StatusInternalServerError)
+		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err = json.NewEncoder(w).Encode(Documents); err != nil {
 		h.log.Error("Failed to encode documents to json", zap.Error(err))
 		http.Error(w, "Failed to encode documents to json", http.StatusInternalServerError)
+		return
 	}
 	h.log.Info("Get documents was succcessfully ended", zap.Int("discipline:", DisciplineID),
 		zap.Int("counts", len(Documents)))
@@ -114,6 +118,7 @@ func (h *Handlers) GetDocument(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("Cant get document to download", zap.Int("Document ID", DocumentID),
 			zap.Error(err))
 		http.Error(w, "Cant get the document to download from server", http.StatusInternalServerError)
+		return
 	}
 	file, er := os.Open(Document.Filepath)
 	if er != nil {
@@ -127,7 +132,8 @@ func (h *Handlers) GetDocument(w http.ResponseWriter, r *http.Request) {
 
 	_, err = io.Copy(w, file)
 	if err != nil {
-		h.log.Error("Failed to send tile", zap.Error(err))
+		h.log.Error("Failed to send file", zap.Error(err))
+		return
 	}
 	_, err = h.pool.Exec(r.Context(), query, DocumentID)
 	if err != nil {
