@@ -16,3 +16,11 @@ type Document struct {
 type CreateDiscipline struct {
 	Title string `db:"title" json:"title"`
 }
+
+type Auth struct {
+	Pass string `json:"pass"`
+}
+
+type Login struct {
+	Token string `json:"token"`
+}

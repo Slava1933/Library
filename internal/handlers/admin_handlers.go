@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"library/internal/errs"
 	"library/internal/interfaces"
@@ -12,7 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
+	"library/auth"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -25,6 +27,38 @@ type AdminHandlers struct {
 
 func NewAdminHandlers(repo interfaces.Admin_interface, log *zap.Logger, pool *pgxpool.Pool) *AdminHandlers {
 	return &AdminHandlers{repo: repo, log: log, pool: pool}
+}
+
+func generateToken() string {
+	bytes := make([]byte, 32)
+	rand.Read(bytes)
+	return fmt.Sprintf("%x", bytes)
+}
+
+func (a *AdminHandlers) AuthHandler(w http.ResponseWriter, r *http.Request) {
+	var path models.Auth
+	var login models.Login
+	if err := json.NewDecoder(r.Body).Decode(&path); err != nil {
+		a.log.Error("Failed to decode request body", zap.Error(err))
+		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+		return
+	}
+	adminPass := os.Getenv("ADMIN_PASS")
+	if path.Pass == adminPass {
+		auth.CurrentToken = generateToken()
+		login.Token = auth.CurrentToken
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(login); err != nil {
+			a.log.Error("Failed to encode", zap.Error(err))
+			http.Error(w, "Failed to encode", http.StatusInternalServerError)
+			return
+		}
+
+	} else {
+		a.log.Info("Invalid password")
+		http.Error(w, "Invalid password", http.StatusUnauthorized)
+		return
+	}
 }
 
 func (a *AdminHandlers) GetAllDocumentsHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +153,7 @@ func (a *AdminHandlers) DeleteDisciplineHandler(w http.ResponseWriter, r *http.R
 
 func (a *AdminHandlers) UpdateDisciplineHandler(w http.ResponseWriter, r *http.Request) {
 	var disc models.Discipline
-	err := json.NewDecoder(r.Body).Decode(disc)
+	err := json.NewDecoder(r.Body).Decode(&disc)
 	if err != nil {
 		a.log.Error("Failed to decode request body", zap.Error(err))
 		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
@@ -151,7 +185,7 @@ func (a *AdminHandlers) UpdateDisciplineHandler(w http.ResponseWriter, r *http.R
 
 func (a *AdminHandlers) UpdateDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	var doc models.Document
-	err := json.NewDecoder(r.Body).Decode(doc)
+	err := json.NewDecoder(r.Body).Decode(&doc)
 	if err != nil {
 		a.log.Error("Failed to decode request body", zap.Error(err))
 		http.Error(w, "Failed to decode request body", http.StatusBadRequest)

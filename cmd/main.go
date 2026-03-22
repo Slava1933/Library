@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"library/auth"
 	"library/internal/handlers"
 	"library/internal/logger"
 	"library/internal/repository"
@@ -29,21 +30,42 @@ func main() {
 
 	repo := repository.NewDocumentRepository(pool, logger)
 	h := handlers.NewHandlers(repo, logger, pool)
+
+	adminrepo := repository.NewAdminRepo(pool, logger)
+	a := handlers.NewAdminHandlers(adminrepo, logger, pool)
+
 	router := mux.NewRouter()
 	router.Path("/api/disciplines").HandlerFunc(h.GetDisciplinesHandler)
 	router.Path("/api/disciplines/{discipline_id}/documents").HandlerFunc(h.GetDocsByDiscipline)
 	router.Path("/api/documents/{id}/download").HandlerFunc(h.GetDocument)
-	router.Path("/api/admin/upload_document").Methods("POST")
-	router.Path("/api/admin/upload_discipline").Methods("POST")
-	router.Path("/api/admin/documents").Methods("GET")
-	router.Path("/api/admin/documents/{id}").Methods("DELETE")
-	router.Path("/api/admin/documents").Methods("PATCH")
-	router.Path("/api/admin/disciplines/{id}").Methods("DELETE")
-	router.Path("/api/admin/disciplines").Methods("PATCH")
+
+	admin := router.PathPrefix("/api/admin").Subrouter()
+	admin.Use(Auth)
+	admin.Path("/upload_document").Methods("POST").HandlerFunc(a.UploadDocumentHandler)
+	admin.Path("/upload_discipline").Methods("POST").HandlerFunc(a.UploadDisciplineHandler)
+	admin.Path("/documents").Methods("GET").HandlerFunc(a.GetAllDocumentsHandler)
+	admin.Path("/documents/{id}").Methods("DELETE").HandlerFunc(a.DeleteDocumentHandler)
+	admin.Path("/documents").Methods("PATCH").HandlerFunc(a.UpdateDocumentHandler)
+	admin.Path("/disciplines/{id}").Methods("DELETE").HandlerFunc(a.DeleteDisciplineHandler)
+	admin.Path("/disciplines").Methods("PATCH").HandlerFunc(a.UpdateDisciplineHandler)
+
+	router.Path("/api/admin/login").HandlerFunc(a.AuthHandler)
+
 	fs := http.FileServer(http.Dir("./front"))
 	router.PathPrefix("/").Handler(fs)
 	if er := http.ListenAndServe(":8080", router); er != nil {
 		logger.Fatal("Cant start the server", zap.Error(er))
 	}
 
+}
+
+func Auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("X-Admin-Token")
+		if token != auth.CurrentToken {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
