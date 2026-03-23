@@ -186,3 +186,17 @@ func (a *AdminRepo) UpdateDocument(ctx context.Context, document models.Document
 	a.log.Info("Update document was successfully ended")
 	return document, nil
 }
+
+
+func(a *AdminRepo) GetDocument(ctx context.Context, ID int) (models.Document) {
+	query := `
+	SELECT discipline_id, title, file_path, download_count
+	WHERE id = $1;
+	`
+	var doc models.Document
+	doc.ID = ID
+	row := a.pool.QueryRow(ctx, query, ID)
+	row.Scan(&doc.DisciplineID, &doc.Title, &doc.Filepath, &doc.Download_count)
+	a.log.Info("Get document was successfully ended")
+	return doc
+}

@@ -7,14 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"library/auth"
 	"library/internal/errs"
 	"library/internal/interfaces"
 	"library/internal/models"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"library/auth"
+	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -48,6 +51,7 @@ func (a *AdminHandlers) AuthHandler(w http.ResponseWriter, r *http.Request) {
 		auth.CurrentToken = generateToken()
 		login.Token = auth.CurrentToken
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(login); err != nil {
 			a.log.Error("Failed to encode", zap.Error(err))
 			http.Error(w, "Failed to encode", http.StatusInternalServerError)
@@ -229,29 +233,26 @@ func (a *AdminHandlers) UploadDocumentHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Failed to convert discipline_id to int", http.StatusInternalServerError)
 		return
 	}
-
 	title := r.FormValue("title")
-	file_path := r.FormValue("file_path")
 	document.DisciplineID = discipline_id
-	document.Title = title
-	document.Filepath = file_path
 	document.Download_count = 0
-	err = a.repo.UploadDocument(r.Context(), document)
+
+	reader, header, err := r.FormFile("file")
 	if err != nil {
-		a.log.Error("Failed to add to db", zap.String("Operation: ", "UploadDocument"), zap.Error(err))
-		http.Error(w, "Failed to add to db", http.StatusInternalServerError)
+		a.log.Error("Failed to get file", zap.Error(err))
+		http.Error(w, "Failed to get file", http.StatusInternalServerError)
 		return
 	}
+	ext := filepath.Ext(header.Filename) // тип файла
+	uniqueName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	File_name := strings.Join([]string{title, ext}, "")
+	document.Title = File_name
+	file_path := fmt.Sprintf("/home/slava/uploads/%s", uniqueName)
+	document.Filepath = file_path
 	file, err := os.Create(file_path)
 	if err != nil {
 		a.log.Error("Failed to create file on server", zap.Error(err))
 		http.Error(w, "Failed to create file on server", http.StatusInternalServerError)
-		return
-	}
-	reader, _, err := r.FormFile("file")
-	if err != nil {
-		a.log.Error("Failed to get file", zap.Error(err))
-		http.Error(w, "Failed to get file", http.StatusInternalServerError)
 		return
 	}
 	if _, err = io.Copy(file, reader); err != nil {
@@ -259,19 +260,57 @@ func (a *AdminHandlers) UploadDocumentHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Failed to write file on server", http.StatusInternalServerError)
 		return
 	}
+	err = a.repo.UploadDocument(r.Context(), document)
+	if err != nil {
+		a.log.Error("Failed to add to db", zap.String("Operation: ", "UploadDocument"), zap.Error(err))
+		http.Error(w, "Failed to add to db", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *AdminHandlers) UploadDisciplineHandler(w http.ResponseWriter, r *http.Request) {
 	var discipline models.CreateDiscipline
-	if err := json.NewDecoder(r.Body).Decode(discipline); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&discipline); err != nil {
 		a.log.Error("Failed to decode request body", zap.Error(err))
 		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
 		return
 	}
 
 	if err := a.repo.UploadDiscipline(r.Context(), discipline); err != nil {
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			a.log.Error("Discipline already exists", zap.Error(err))
+			http.Error(w, "Already exists", 409)
+			return
+		}
 		a.log.Error("Failed to add to db", zap.String("Operation: ", "UploadDiscipline"), zap.Error(err))
 		http.Error(w, "Failed to add to db", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (a *AdminHandlers) GetDocumentHandler(w http.ResponseWriter, r *http.Request) {
+	pathparts := strings.Split(r.URL.Path, "/")
+
+	if len(pathparts) < 5 {
+		a.log.Error("Bad request, small URL path")
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+
+	id := pathparts[4]
+	DocID, err := strconv.Atoi(id)
+	if err != nil {
+		a.log.Error("Failed to convert DocID to int", zap.Error(err))
+		http.Error(w, "Failed to convert DocID to int", http.StatusInternalServerError)
+		return
+	}
+	document := a.repo.GetDocument(r.Context(), DocID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(document); err != nil {
+		a.log.Error("Failed to encode document", zap.Error(err))
+		http.Error(w, "Failed to encode document", http.StatusInternalServerError)
 		return
 	}
 }
