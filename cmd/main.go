@@ -48,8 +48,8 @@ func main() {
 	admin.Path("/documents").Methods("PATCH").HandlerFunc(a.UpdateDocumentHandler)
 	admin.Path("/disciplines/{id}").Methods("DELETE").HandlerFunc(a.DeleteDisciplineHandler)
 	admin.Path("/disciplines").Methods("PATCH").HandlerFunc(a.UpdateDisciplineHandler)
+	admin.Path("/documents/download_count").HandlerFunc(a.GET_Download_Count_Handler)
 	admin.Path("/documents/{id}").Methods("GET").HandlerFunc(a.GetDocumentHandler)
-
 	router.Path("/api/admin/login").HandlerFunc(a.AuthHandler)
 
 	fs := http.FileServer(http.Dir("./front"))

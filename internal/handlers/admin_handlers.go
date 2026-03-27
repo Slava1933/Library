@@ -298,7 +298,9 @@ func (a *AdminHandlers) GetDocumentHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	id := pathparts[4]
+	fmt.Printf("id: %s /  // // / // ////", id)
 	DocID, err := strconv.Atoi(id)
+	fmt.Printf("Docid: %d", DocID)
 	if err != nil {
 		a.log.Error("Failed to convert DocID to int", zap.Error(err))
 		http.Error(w, "Failed to convert DocID to int", http.StatusInternalServerError)
@@ -313,4 +315,21 @@ func (a *AdminHandlers) GetDocumentHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Failed to encode document", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (a *AdminHandlers) GET_Download_Count_Handler(w http.ResponseWriter, r *http.Request) {
+	type count struct {
+		Download_count int
+	}
+	var dwc count
+	download_count := a.repo.GET_Download_Count(r.Context())
+	dwc.Download_count = download_count
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(dwc); err != nil {
+		a.log.Error("Failed to get download count", zap.Error(err))
+		http.Error(w, "Failed to get download count", http.StatusInternalServerError)
+		return
+	}
+	a.log.Info("Getting Download count was successfully ended")
 }

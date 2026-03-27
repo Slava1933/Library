@@ -187,8 +187,7 @@ func (a *AdminRepo) UpdateDocument(ctx context.Context, document models.Document
 	return document, nil
 }
 
-
-func(a *AdminRepo) GetDocument(ctx context.Context, ID int) (models.Document) {
+func (a *AdminRepo) GetDocument(ctx context.Context, ID int) models.Document {
 	query := `
 	SELECT discipline_id, title, file_path, download_count
 	WHERE id = $1;
@@ -199,4 +198,18 @@ func(a *AdminRepo) GetDocument(ctx context.Context, ID int) (models.Document) {
 	row.Scan(&doc.DisciplineID, &doc.Title, &doc.Filepath, &doc.Download_count)
 	a.log.Info("Get document was successfully ended")
 	return doc
+}
+
+func (a *AdminRepo) GET_Download_Count(ctx context.Context) int {
+	query := ` 
+	SELECT SUM(download_count) AS total
+	FROM documents;
+	`
+	var total int
+	row := a.pool.QueryRow(ctx, query)
+	if err := row.Scan(&total); err != nil {
+		a.log.Error("Failed to scan db row", zap.Error(err))
+		return 0
+	}
+	return total
 }
