@@ -21,4 +21,5 @@ type Admin_interface interface {
 	UpdateDocument(ctx context.Context, document models.Document) (models.Document, error)
 	GetDocument(ctx context.Context, ID int) models.Document
 	GET_Download_Count(ctx context.Context) int
+	FilterDocumentsByDiscipline(ctx context.Context, DisciplineID int) ([]models.Document, error)
 }

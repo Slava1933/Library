@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"library/internal/errs"
 	"library/internal/models"
 	"os"
@@ -212,4 +214,34 @@ func (a *AdminRepo) GET_Download_Count(ctx context.Context) int {
 		return 0
 	}
 	return total
+}
+
+func (a *AdminRepo) FilterDocumentsByDiscipline(ctx context.Context, DisciplineID int) ([]models.Document, error) {
+	query := `SELECT id, title, file_path, download_count FROM documents WHERE discipline_id = $1`
+
+	rows, err := a.pool.Query(ctx, query, DisciplineID)
+	if err != nil {
+		a.log.Error("Failed to query documents", zap.String("operation", "FilterDocumentsByDiscipline"),
+			zap.Int("id", DisciplineID), zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	documents := make([]models.Document, 0)
+	for rows.Next() {
+		var document models.Document
+		document.DisciplineID = DisciplineID
+		err := rows.Scan(&document.ID, &document.Title, &document.Filepath, &document.Download_count)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				a.log.Info("Documents not found", zap.Int("Discipline ID: ", DisciplineID))
+				return []models.Document{}, err
+			}
+			a.log.Error("Failed to scan document row", zap.Error(err))
+			return nil, err
+		}
+		documents = append(documents, document)
+	}
+	a.log.Info("Find filtered documents by discipline was successfully ended")
+	return documents, nil
 }

@@ -243,7 +243,7 @@ func (a *AdminHandlers) UploadDocumentHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Failed to get file", http.StatusInternalServerError)
 		return
 	}
-	ext := filepath.Ext(header.Filename) // тип файла
+	ext := filepath.Ext(header.Filename)
 	uniqueName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	File_name := strings.Join([]string{title, ext}, "")
 	document.Title = File_name
@@ -298,9 +298,7 @@ func (a *AdminHandlers) GetDocumentHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	id := pathparts[4]
-	fmt.Printf("id: %s /  // // / // ////", id)
 	DocID, err := strconv.Atoi(id)
-	fmt.Printf("Docid: %d", DocID)
 	if err != nil {
 		a.log.Error("Failed to convert DocID to int", zap.Error(err))
 		http.Error(w, "Failed to convert DocID to int", http.StatusInternalServerError)
@@ -332,4 +330,48 @@ func (a *AdminHandlers) GET_Download_Count_Handler(w http.ResponseWriter, r *htt
 		return
 	}
 	a.log.Info("Getting Download count was successfully ended")
+}
+
+func (a *AdminHandlers) GetFilteredDocsByDiscipline_Handler(w http.ResponseWriter, r *http.Request) {
+	pathparts := strings.Split(r.URL.Path, "/")
+
+	if len(pathparts) < 6 {
+		a.log.Error("Bad request, small path")
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+
+	id := pathparts[5]
+	DisciplineID, err := strconv.Atoi(id)
+	if err != nil {
+		a.log.Error("Cant convert DisciplineID to integer", zap.Error(err))
+		http.Error(w, "Cant convert DisciplineID to integer", http.StatusInternalServerError)
+		return
+	}
+
+	Documents, err := a.repo.FilterDocumentsByDiscipline(r.Context(), DisciplineID)
+	if Documents == nil {
+		Documents = []models.Document{}
+	}
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			a.log.Info("Documents not found", zap.Int("Discipline id", DisciplineID))
+			http.Error(w, "Documents not found", http.StatusNotFound)
+			return
+		}
+		a.log.Error("Cant get the documents of discipline",
+			zap.Int("discipline id:", DisciplineID), zap.Error(err))
+		http.Error(w, "Cant get the documents from server", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err = json.NewEncoder(w).Encode(Documents); err != nil {
+		a.log.Error("Failed to encode documents to json", zap.Error(err))
+		http.Error(w, "Failed to encode documents to json", http.StatusInternalServerError)
+		return
+	}
+	a.log.Info("Get documents was succcessfully ended", zap.Int("discipline:", DisciplineID),
+		zap.Int("counts", len(Documents)))
 }
